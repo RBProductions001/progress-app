@@ -6,6 +6,7 @@
     <title>Progress</title>
     <link rel="icon" href="progress.png" type="image/png">
     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -413,329 +414,474 @@
     </div>
 
     <script>
-        let tasks = [];
-        let history = [];
-        let currentTheme = 'neutral';
+       let tasks = [];
+let history = [];
+let currentTheme = 'neutral';
+let lineChartInstance = null;
+let pieChartInstance = null;
 
-        // Initialize app
-        function init() {
-            loadData();
-            renderTasks();
+// Initialize app
+function init() {
+    loadData();
+    renderTasks();
+    updateStats();
+    updateHistory();
+    updateTheme();
+    
+    // Add resize listener for charts
+    window.addEventListener('resize', function() {
+        if (document.getElementById('stats').classList.contains('active')) {
             updateStats();
+        }
+        if (document.getElementById('history').classList.contains('active')) {
             updateHistory();
-            updateTheme();
         }
+    });
+}
 
-        // Load data from localStorage
-        function loadData() {
-            const savedTasks = localStorage.getItem('tasks');
-            const savedHistory = localStorage.getItem('history');
-            
-            if (savedTasks) {
-                tasks = JSON.parse(savedTasks);
-            }
-            
-            if (savedHistory) {
-                history = JSON.parse(savedHistory);
-            }
-        }
+// Load data from localStorage
+function loadData() {
+    const savedTasks = localStorage.getItem('tasks');
+    const savedHistory = localStorage.getItem('history');
+    
+    if (savedTasks) {
+        tasks = JSON.parse(savedTasks);
+    }
+    
+    if (savedHistory) {
+        history = JSON.parse(savedHistory);
+    }
+}
 
-        // Save data to localStorage
-        function saveData() {
-            localStorage.setItem('tasks', JSON.stringify(tasks));
-            localStorage.setItem('history', JSON.stringify(history));
-        }
+// Save data to localStorage
+function saveData() {
+    localStorage.setItem('tasks', JSON.stringify(tasks));
+    localStorage.setItem('history', JSON.stringify(history));
+}
 
-        // Switch sections
-        function switchSection(section) {
-            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-            
-            document.getElementById(section).classList.add('active');
-            event.target.classList.add('active');
+// Switch sections
+function switchSection(section) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    
+    document.getElementById(section).classList.add('active');
+    event.target.classList.add('active');
 
-            if (section === 'stats') updateStats();
-            if (section === 'history') updateHistory();
-        }
+    if (section === 'stats') {
+        setTimeout(updateStats, 100); // Small delay to ensure DOM is ready
+    }
+    if (section === 'history') {
+        setTimeout(updateHistory, 100);
+    }
+}
 
-        // Handle Enter key
-        function handleKeyPress(e) {
-            if (e.key === 'Enter') addTask();
-        }
+// Handle Enter key
+function handleKeyPress(e) {
+    if (e.key === 'Enter') addTask();
+}
 
-        // Add task
-        function addTask() {
-            const input = document.getElementById('taskInput');
-            const text = input.value.trim();
-            
-            if (text) {
-                tasks.push({ text, completed: false });
-                input.value = '';
-                saveData();
-                renderTasks();
-                updateStats();
-            }
-        }
+// Add task
+function addTask() {
+    const input = document.getElementById('taskInput');
+    const text = input.value.trim();
+    
+    if (text) {
+        tasks.push({ text, completed: false });
+        input.value = '';
+        saveData();
+        renderTasks();
+        updateStats();
+        
+        // Auto-focus input for next task
+        input.focus();
+    }
+}
 
-        // Toggle task completion
-        function toggleTask(index) {
-            tasks[index].completed = !tasks[index].completed;
-            saveData();
-            renderTasks();
-            updateStats();
-        }
+// Toggle task completion
+function toggleTask(index) {
+    tasks[index].completed = !tasks[index].completed;
+    saveData();
+    renderTasks();
+    updateStats();
+}
 
-        // Delete task
-        function deleteTask(index) {
-            tasks.splice(index, 1);
-            saveData();
-            renderTasks();
-            updateStats();
-        }
+// Delete task
+function deleteTask(index, event) {
+    event.stopPropagation(); // Prevent triggering toggle
+    tasks.splice(index, 1);
+    saveData();
+    renderTasks();
+    updateStats();
+}
 
-        // Render tasks
-        function renderTasks() {
-            const list = document.getElementById('todoList');
-            
-            if (tasks.length === 0) {
-                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><div>No tasks yet. Add one to get started!</div></div>';
-                return;
-            }
-            
-            list.innerHTML = tasks.map((task, i) => `
-                <div class="todo-item">
-                    <div class="checkbox ${task.completed ? 'checked' : ''}" onclick="toggleTask(${i})"></div>
-                    <div class="todo-text ${task.completed ? 'completed' : ''}">${task.text}</div>
-                    <button class="delete-btn" onclick="deleteTask(${i})">Delete</button>
-                </div>
-            `).join('');
-        }
+// Render tasks
+function renderTasks() {
+    const list = document.getElementById('todoList');
+    
+    if (tasks.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><div>No tasks yet. Add one to get started!</div></div>';
+        return;
+    }
+    
+    list.innerHTML = tasks.map((task, i) => `
+        <div class="todo-item" onclick="toggleTask(${i})">
+            <div class="checkbox ${task.completed ? 'checked' : ''}"></div>
+            <div class="todo-text ${task.completed ? 'completed' : ''}">${task.text}</div>
+            <button class="delete-btn" onclick="deleteTask(${i}, event)">Delete</button>
+        </div>
+    `).join('');
+}
 
-        // Calculate efficiency
-        function calculateEfficiency() {
-            if (tasks.length === 0) return 0;
-            const completed = tasks.filter(t => t.completed).length;
-            return Math.round((completed / tasks.length) * 100);
-        }
+// Calculate efficiency
+function calculateEfficiency() {
+    if (tasks.length === 0) return 0;
+    const completed = tasks.filter(t => t.completed).length;
+    return Math.round((completed / tasks.length) * 100);
+}
 
-        // Update stats
-        function updateStats() {
-            const efficiency = calculateEfficiency();
-            document.getElementById('percentage').textContent = efficiency + '%';
-            drawPieChart(efficiency);
-        }
+// Update stats
+function updateStats() {
+    const efficiency = calculateEfficiency();
+    document.getElementById('percentage').textContent = efficiency + '%';
+    drawPieChart(efficiency);
+}
 
-        // Draw pie chart
-        function drawPieChart(percentage) {
-            const canvas = document.getElementById('pieChart');
-            const ctx = canvas.getContext('2d');
-            const size = 280;
-            canvas.width = size;
-            canvas.height = size;
-            
-            const centerX = size / 2;
-            const centerY = size / 2;
-            const radius = size / 2 - 20;
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, size, size);
-            
-            // Draw background circle
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.fill();
-            
-            // Draw completed portion
-            if (percentage > 0) {
-                const gradient = ctx.createLinearGradient(0, 0, size, size);
-                gradient.addColorStop(0, '#3498db');
-                gradient.addColorStop(1, '#2c3e50');
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, -0.5 * Math.PI, (-0.5 + (percentage / 100) * 2) * Math.PI);
-                ctx.closePath();
-                ctx.fillStyle = gradient;
-                ctx.fill();
-            }
-            
-            // Draw center circle
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius * 0.65, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.fill();
-        }
-
-        // Update theme based on progress trend
-        function updateTheme() {
-            if (history.length < 2) {
-                setTheme('neutral');
-                return;
-            }
-            
-            const current = history[history.length - 1].efficiency;
-            const previous = history[history.length - 2].efficiency;
-            const diff = current - previous;
-            
-            if (diff > 0) {
-                setTheme('positive');
-            } else if (diff < 0) {
-                setTheme('negative');
-            } else {
-                setTheme('neutral');
-            }
-        }
-
-        // Set theme
-        function setTheme(theme) {
-            document.body.classList.remove('theme-positive', 'theme-negative', 'theme-neutral');
-            document.body.classList.add(`theme-${theme}`);
-            currentTheme = theme;
-        }
-
-        // End day
-        function endDay() {
-            if (tasks.length === 0) {
-                alert('Add some tasks before ending the day!');
-                return;
-            }
-            
-            const efficiency = calculateEfficiency();
-            history.push({
-                date: new Date().toLocaleDateString(),
-                efficiency: efficiency,
-                total: tasks.length,
-                completed: tasks.filter(t => t.completed).length
-            });
-            
-            tasks = [];
-            saveData();
-            renderTasks();
-            updateStats();
-            updateHistory();
-            updateTheme();
-            
-            alert(`Day ended! Your efficiency: ${efficiency}%`);
-        }
-
-        // Update history
-        function updateHistory() {
-            if (history.length === 0) {
-                document.getElementById('comparison').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><div>Complete your first day to see progress!</div></div>';
-                return;
-            }
-            
-            if (history.length === 1) {
-                document.getElementById('comparison').textContent = 'First Day';
-                document.getElementById('comparison').className = 'comparison neutral';
-            } else {
-                const current = history[history.length - 1].efficiency;
-                const previous = history[history.length - 2].efficiency;
-                const diff = current - previous;
-                
-                const compEl = document.getElementById('comparison');
-                if (diff > 0) {
-                    compEl.textContent = '+' + diff + '%';
-                    compEl.className = 'comparison positive';
-                } else if (diff < 0) {
-                    compEl.textContent = diff + '%';
-                    compEl.className = 'comparison negative';
-                } else {
-                    compEl.textContent = '0%';
-                    compEl.className = 'comparison neutral';
+// Draw pie chart using Chart.js
+function drawPieChart(percentage) {
+    const ctx = document.getElementById('pieChart');
+    
+    if (pieChartInstance) {
+        pieChartInstance.destroy();
+    }
+    
+    const remaining = 100 - percentage;
+    
+    pieChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            datasets: [{
+                data: [percentage, remaining],
+                backgroundColor: [
+                    getComputedStyle(document.documentElement).getPropertyValue('--primary-color') || '#3498db',
+                    'rgba(255, 255, 255, 0.3)'
+                ],
+                borderWidth: 0,
+                borderRadius: percentage > 0 ? 10 : 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    enabled: false
                 }
+            },
+            animation: {
+                animateScale: true,
+                animateRotate: true
             }
-            
-            drawLineChart();
         }
+    });
+}
 
-        // Draw line chart
-        function drawLineChart() {
-            const canvas = document.getElementById('lineChart');
-            const ctx = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth * 2;
-            canvas.height = 400;
-            
-            const padding = 40;
-            const width = canvas.width - padding * 2;
-            const height = canvas.height - padding * 2;
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (history.length === 0) return;
-            
-            // Draw axes
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(padding, padding);
-            ctx.lineTo(padding, canvas.height - padding);
-            ctx.lineTo(canvas.width - padding, canvas.height - padding);
-            ctx.stroke();
-            
-            // Draw grid lines
-            for (let i = 0; i <= 5; i++) {
-                const y = padding + (height / 5) * i;
-                ctx.beginPath();
-                ctx.moveTo(padding, y);
-                ctx.lineTo(canvas.width - padding, y);
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-                ctx.lineWidth = 1;
-                ctx.stroke();
-                
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.font = 'bold 20px -apple-system';
-                ctx.fillText((100 - i * 20) + '%', 5, y + 8);
-            }
-            
-            // Create gradient for line
-            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-            gradient.addColorStop(0, '#3498db');
-            gradient.addColorStop(1, '#2c3e50');
-            
-            // Draw line
-            ctx.strokeStyle = gradient;
-            ctx.lineWidth = 5;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            
-            history.forEach((day, i) => {
-                const x = padding + (width / (history.length - 1 || 1)) * i;
-                const y = canvas.height - padding - (day.efficiency / 100) * height;
-                
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
+// Update theme based on progress trend
+function updateTheme() {
+    if (history.length < 2) {
+        setTheme('neutral');
+        return;
+    }
+    
+    const current = history[history.length - 1].efficiency;
+    const previous = history[history.length - 2].efficiency;
+    const diff = current - previous;
+    
+    if (diff > 0) {
+        setTheme('positive');
+    } else if (diff < 0) {
+        setTheme('negative');
+    } else {
+        setTheme('neutral');
+    }
+}
+
+// Set theme
+function setTheme(theme) {
+    document.body.classList.remove('theme-positive', 'theme-negative', 'theme-neutral');
+    document.body.classList.add(`theme-${theme}`);
+    currentTheme = theme;
+}
+
+// End day
+function endDay() {
+    if (tasks.length === 0) {
+        alert('Add some tasks before ending the day!');
+        return;
+    }
+    
+    const today = new Date().toLocaleDateString();
+    
+    // Check if we already have an entry for today
+    const todayIndex = history.findIndex(entry => entry.date === today);
+    const efficiency = calculateEfficiency();
+    
+    if (todayIndex !== -1) {
+        // Update today's entry
+        history[todayIndex] = {
+            date: today,
+            efficiency: efficiency,
+            total: tasks.length,
+            completed: tasks.filter(t => t.completed).length
+        };
+    } else {
+        // Add new entry
+        history.push({
+            date: today,
+            efficiency: efficiency,
+            total: tasks.length,
+            completed: tasks.filter(t => t.completed).length
+        });
+    }
+    
+    // Keep only last 30 days of history
+    if (history.length > 30) {
+        history = history.slice(-30);
+    }
+    
+    tasks = [];
+    saveData();
+    renderTasks();
+    updateStats();
+    updateHistory();
+    updateTheme();
+    
+    // Show completion message with emoji based on efficiency
+    let emoji = '😊';
+    if (efficiency >= 80) emoji = '🎉';
+    else if (efficiency >= 60) emoji = '👍';
+    else if (efficiency >= 40) emoji = '😐';
+    else emoji = '😔';
+    
+    alert(`Day ended! Your efficiency: ${efficiency}% ${emoji}`);
+}
+
+// Update history
+function updateHistory() {
+    const comparisonEl = document.getElementById('comparison');
+    
+    if (history.length === 0) {
+        comparisonEl.innerHTML = '—';
+        drawLineChart();
+        return;
+    }
+    
+    if (history.length === 1) {
+        comparisonEl.textContent = 'First Day';
+        comparisonEl.className = 'comparison neutral';
+    } else {
+        const current = history[history.length - 1].efficiency;
+        const previous = history[history.length - 2].efficiency;
+        const diff = current - previous;
+        
+        if (diff > 0) {
+            comparisonEl.textContent = '+' + diff + '%';
+            comparisonEl.className = 'comparison positive';
+        } else if (diff < 0) {
+            comparisonEl.textContent = diff + '%';
+            comparisonEl.className = 'comparison negative';
+        } else {
+            comparisonEl.textContent = '0%';
+            comparisonEl.className = 'comparison neutral';
+        }
+    }
+    
+    drawLineChart();
+}
+
+// Draw line chart using Chart.js
+function drawLineChart() {
+    const ctx = document.getElementById('lineChart').getContext('2d');
+    
+    if (lineChartInstance) {
+        lineChartInstance.destroy();
+    }
+    
+    if (history.length === 0) {
+        // Show empty state
+        ctx.font = 'bold 16px -apple-system';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.textAlign = 'center';
+        ctx.fillText('Complete days to see your progress history', ctx.canvas.width / 2, ctx.canvas.height / 2);
+        return;
+    }
+    
+    // Prepare data - show max 7 points for better readability
+    const showData = history.length <= 7 ? history : history.slice(-7);
+    const labels = showData.map(day => {
+        const date = new Date(day.date);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    });
+    
+    const efficiencies = showData.map(day => day.efficiency);
+    
+    // Create gradient for line
+    const gradient = ctx.createLinearGradient(0, 0, ctx.canvas.width, 0);
+    gradient.addColorStop(0, '#3498db');
+    gradient.addColorStop(1, '#2c3e50');
+    
+    // Create area gradient
+    const areaGradient = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    areaGradient.addColorStop(0, 'rgba(52, 152, 219, 0.3)');
+    areaGradient.addColorStop(1, 'rgba(52, 152, 219, 0.1)');
+    
+    lineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Efficiency %',
+                data: efficiencies,
+                borderColor: gradient,
+                backgroundColor: areaGradient,
+                borderWidth: 4,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#3498db',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 3,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    titleColor: '#2c3e50',
+                    bodyColor: '#2c3e50',
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    borderWidth: 1,
+                    cornerRadius: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return `Efficiency: ${context.parsed.y}%`;
+                        }
+                    }
                 }
-            });
-            
-            ctx.stroke();
-            
-            // Draw points
-            history.forEach((day, i) => {
-                const x = padding + (width / (history.length - 1 || 1)) * i;
-                const y = canvas.height - padding - (day.efficiency / 100) * height;
-                
-                ctx.beginPath();
-                ctx.arc(x, y, 8, 0, 2 * Math.PI);
-                
-                const pointGradient = ctx.createLinearGradient(x - 8, y - 8, x + 8, y + 8);
-                pointGradient.addColorStop(0, '#3498db');
-                pointGradient.addColorStop(1, '#2c3e50');
-                ctx.fillStyle = pointGradient;
-                ctx.fill();
-                
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-            });
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.2)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        },
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        font: {
+                            size: 11,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
         }
+    });
+}
 
-        // Initialize on load
-        init();
+// Export data (bonus feature)
+function exportData() {
+    const data = {
+        tasks: tasks,
+        history: history,
+        exportDate: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `progress-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Import data (bonus feature)
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (data.tasks && data.history) {
+                if (confirm('This will replace your current data. Continue?')) {
+                    tasks = data.tasks;
+                    history = data.history;
+                    saveData();
+                    init();
+                    alert('Data imported successfully!');
+                }
+            } else {
+                alert('Invalid data file format.');
+            }
+        } catch (error) {
+            alert('Error reading file: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset file input
+    event.target.value = '';
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    init();
+    
+    // Add CSS variables for theming
+    const style = document.createElement('style');
+    style.textContent = `
+        :root {
+            --primary-color: #3498db;
+            --positive-color: #2ecc71;
+            --negative-color: #e74c3c;
+        }
+    `;
+    document.head.appendChild(style);
+});
     </script>
     <script>
        // Unregister any old service workers first, then register the new one
