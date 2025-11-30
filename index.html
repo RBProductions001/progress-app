@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Progress</title>
+    <link rel="icon" href="progress.png" type="image/png">
+    <link rel="manifest" href="manifest.json">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
+            color: #2c3e50;
+            height: 100vh;
+            overflow: hidden;
+            transition: all 0.8s ease;
+        }
+
+        /* Dynamic theme states */
+        body.theme-positive {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+
+        body.theme-negative {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        body.theme-neutral {
+            background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .nav {
+            display: flex;
+            justify-content: center;
+            gap: 0;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 6px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-btn {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.9);
+            cursor: pointer;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .nav-btn.active {
+            background: rgba(255, 255, 255, 0.9);
+            color: #3498db;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .content {
+            height: calc(100vh - 100px);
+            overflow-y: auto;
+            padding: 2rem 1rem;
+        }
+
+        .section {
+            display: none;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Glass card */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
+
+        /* To-Do Section */
+        .input-container {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 1rem 1.2rem;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 14px;
+            color: #2c3e50;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(44, 62, 80, 0.6);
+        }
+
+        input[type="text"]:focus {
+            background: rgba(255, 255, 255, 0.45);
+            border-color: rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        button {
+            padding: 1rem 1.8rem;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 14px;
+            color: #2c3e50;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .todo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.2rem;
+            background: rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .todo-item:hover {
+            background: rgba(255, 255, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .checkbox {
+            width: 26px;
+            height: 26px;
+            border: 2px solid rgba(52, 152, 219, 0.8);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .checkbox.checked {
+            background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
+            border-color: #3498db;
+            position: relative;
+        }
+
+        .checkbox.checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .todo-text {
+            flex: 1;
+            font-size: 1rem;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .todo-text.completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .delete-btn {
+            padding: 0.6rem 1.2rem;
+            background: rgba(231, 76, 60, 0.3);
+            border: 1px solid rgba(231, 76, 60, 0.5);
+            font-size: 0.9rem;
+        }
+
+        .delete-btn:hover {
+            background: rgba(231, 76, 60, 0.5);
+        }
+
+        .end-day-btn {
+            width: 100%;
+            margin-top: 2rem;
+            padding: 1.2rem;
+            background: rgba(52, 152, 219, 0.4);
+            border: 1px solid rgba(52, 152, 219, 0.6);
+            font-size: 1.1rem;
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .end-day-btn:hover {
+            background: rgba(52, 152, 219, 0.6);
+        }
+
+        /* Stats Section */
+        .stats-container {
+            text-align: center;
+        }
+
+        .percentage {
+            font-size: 5.5rem;
+            font-weight: 800;
+            margin: 2rem 0;
+            background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 4px 20px rgba(52, 152, 219, 0.3));
+        }
+
+        .chart-container {
+            max-width: 320px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+
+        .stats-label {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            margin-top: 1rem;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* History Section */
+        .history-container {
+            text-align: center;
+        }
+
+        .comparison {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin: 2rem 0;
+            filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.2));
+        }
+
+        .comparison.positive {
+            color: #2ecc71;
+        }
+
+        .comparison.negative {
+            color: #e74c3c;
+        }
+
+        .comparison.neutral {
+            color: #f1c40f;
+        }
+
+        .graph-container {
+            margin-top: 3rem;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            padding: 2rem;
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.15));
+        }
+
+        @media (max-width: 640px) {
+            .content {
+                padding: 1rem;
+            }
+
+            .percentage {
+                font-size: 3.5rem;
+            }
+
+            .comparison {
+                font-size: 2.5rem;
+            }
+
+            .nav-btn {
+                font-size: 0.85rem;
+                padding: 0.6rem 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="nav">
+            <button class="nav-btn active" onclick="switchSection('todo')">To-Do</button>
+            <button class="nav-btn" onclick="switchSection('stats')">Today</button>
+            <button class="nav-btn" onclick="switchSection('history')">History</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- To-Do Section -->
+        <div id="todo" class="section active">
+            <div class="input-container">
+                <input type="text" id="taskInput" placeholder="Add a new task..." onkeypress="handleKeyPress(event)">
+                <button onclick="addTask()">Add</button>
+            </div>
+            <div id="todoList" class="todo-list"></div>
+            <button class="end-day-btn" onclick="endDay()">End Day</button>
+        </div>
+
+        <!-- Stats Section -->
+        <div id="stats" class="section">
+            <div class="stats-container">
+                <div class="stats-label">Today's Efficiency</div>
+                <div id="percentage" class="percentage">0%</div>
+                <div class="chart-container">
+                    <canvas id="pieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Section -->
+        <div id="history" class="section">
+            <div class="history-container">
+                <div class="stats-label">Progress Comparison</div>
+                <div id="comparison" class="comparison neutral">—</div>
+                <div class="graph-container">
+                    <canvas id="lineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tasks = [];
+        let history = [];
+        let currentTheme = 'neutral';
+
+        // Initialize app
+        function init() {
+            loadData();
+            renderTasks();
+            updateStats();
+            updateHistory();
+            updateTheme();
+        }
+
+        // Load data from localStorage
+        function loadData() {
+            const savedTasks = localStorage.getItem('tasks');
+            const savedHistory = localStorage.getItem('history');
+            
+            if (savedTasks) {
+                tasks = JSON.parse(savedTasks);
+            }
+            
+            if (savedHistory) {
+                history = JSON.parse(savedHistory);
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            localStorage.setItem('history', JSON.stringify(history));
+        }
+
+        // Switch sections
+        function switchSection(section) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(section).classList.add('active');
+            event.target.classList.add('active');
+
+            if (section === 'stats') updateStats();
+            if (section === 'history') updateHistory();
+        }
+
+        // Handle Enter key
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') addTask();
+        }
+
+        // Add task
+        function addTask() {
+            const input = document.getElementById('taskInput');
+            const text = input.value.trim();
+            
+            if (text) {
+                tasks.push({ text, completed: false });
+                input.value = '';
+                saveData();
+                renderTasks();
+                updateStats();
+            }
+        }
+
+        // Toggle task completion
+        function toggleTask(index) {
+            tasks[index].completed = !tasks[index].completed;
+            saveData();
+            renderTasks();
+            updateStats();
+        }
+
+        // Delete task
+        function deleteTask(index) {
+            tasks.splice(index, 1);
+            saveData();
+            renderTasks();
+            updateStats();
+        }
+
+        // Render tasks
+        function renderTasks() {
+            const list = document.getElementById('todoList');
+            
+            if (tasks.length === 0) {
+                list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📝</div><div>No tasks yet. Add one to get started!</div></div>';
+                return;
+            }
+            
+            list.innerHTML = tasks.map((task, i) => `
+                <div class="todo-item">
+                    <div class="checkbox ${task.completed ? 'checked' : ''}" onclick="toggleTask(${i})"></div>
+                    <div class="todo-text ${task.completed ? 'completed' : ''}">${task.text}</div>
+                    <button class="delete-btn" onclick="deleteTask(${i})">Delete</button>
+                </div>
+            `).join('');
+        }
+
+        // Calculate efficiency
+        function calculateEfficiency() {
+            if (tasks.length === 0) return 0;
+            const completed = tasks.filter(t => t.completed).length;
+            return Math.round((completed / tasks.length) * 100);
+        }
+
+        // Update stats
+        function updateStats() {
+            const efficiency = calculateEfficiency();
+            document.getElementById('percentage').textContent = efficiency + '%';
+            drawPieChart(efficiency);
+        }
+
+        // Draw pie chart
+        function drawPieChart(percentage) {
+            const canvas = document.getElementById('pieChart');
+            const ctx = canvas.getContext('2d');
+            const size = 280;
+            canvas.width = size;
+            canvas.height = size;
+            
+            const centerX = size / 2;
+            const centerY = size / 2;
+            const radius = size / 2 - 20;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Draw background circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fill();
+            
+            // Draw completed portion
+            if (percentage > 0) {
+                const gradient = ctx.createLinearGradient(0, 0, size, size);
+                gradient.addColorStop(0, '#3498db');
+                gradient.addColorStop(1, '#2c3e50');
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, -0.5 * Math.PI, (-0.5 + (percentage / 100) * 2) * Math.PI);
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            }
+            
+            // Draw center circle
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius * 0.65, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fill();
+        }
+
+        // Update theme based on progress trend
+        function updateTheme() {
+            if (history.length < 2) {
+                setTheme('neutral');
+                return;
+            }
+            
+            const current = history[history.length - 1].efficiency;
+            const previous = history[history.length - 2].efficiency;
+            const diff = current - previous;
+            
+            if (diff > 0) {
+                setTheme('positive');
+            } else if (diff < 0) {
+                setTheme('negative');
+            } else {
+                setTheme('neutral');
+            }
+        }
+
+        // Set theme
+        function setTheme(theme) {
+            document.body.classList.remove('theme-positive', 'theme-negative', 'theme-neutral');
+            document.body.classList.add(`theme-${theme}`);
+            currentTheme = theme;
+        }
+
+        // End day
+        function endDay() {
+            if (tasks.length === 0) {
+                alert('Add some tasks before ending the day!');
+                return;
+            }
+            
+            const efficiency = calculateEfficiency();
+            history.push({
+                date: new Date().toLocaleDateString(),
+                efficiency: efficiency,
+                total: tasks.length,
+                completed: tasks.filter(t => t.completed).length
+            });
+            
+            tasks = [];
+            saveData();
+            renderTasks();
+            updateStats();
+            updateHistory();
+            updateTheme();
+            
+            alert(`Day ended! Your efficiency: ${efficiency}%`);
+        }
+
+        // Update history
+        function updateHistory() {
+            if (history.length === 0) {
+                document.getElementById('comparison').innerHTML = '<div class="empty-state"><div class="empty-state-icon">📊</div><div>Complete your first day to see progress!</div></div>';
+                return;
+            }
+            
+            if (history.length === 1) {
+                document.getElementById('comparison').textContent = 'First Day';
+                document.getElementById('comparison').className = 'comparison neutral';
+            } else {
+                const current = history[history.length - 1].efficiency;
+                const previous = history[history.length - 2].efficiency;
+                const diff = current - previous;
+                
+                const compEl = document.getElementById('comparison');
+                if (diff > 0) {
+                    compEl.textContent = '+' + diff + '%';
+                    compEl.className = 'comparison positive';
+                } else if (diff < 0) {
+                    compEl.textContent = diff + '%';
+                    compEl.className = 'comparison negative';
+                } else {
+                    compEl.textContent = '0%';
+                    compEl.className = 'comparison neutral';
+                }
+            }
+            
+            drawLineChart();
+        }
+
+        // Draw line chart
+        function drawLineChart() {
+            const canvas = document.getElementById('lineChart');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth * 2;
+            canvas.height = 400;
+            
+            const padding = 40;
+            const width = canvas.width - padding * 2;
+            const height = canvas.height - padding * 2;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (history.length === 0) return;
+            
+            // Draw axes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw grid lines
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (height / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.font = 'bold 20px -apple-system';
+                ctx.fillText((100 - i * 20) + '%', 5, y + 8);
+            }
+            
+            // Create gradient for line
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            gradient.addColorStop(0, '#3498db');
+            gradient.addColorStop(1, '#2c3e50');
+            
+            // Draw line
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            
+            history.forEach((day, i) => {
+                const x = padding + (width / (history.length - 1 || 1)) * i;
+                const y = canvas.height - padding - (day.efficiency / 100) * height;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            
+            ctx.stroke();
+            
+            // Draw points
+            history.forEach((day, i) => {
+                const x = padding + (width / (history.length - 1 || 1)) * i;
+                const y = canvas.height - padding - (day.efficiency / 100) * height;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, 2 * Math.PI);
+                
+                const pointGradient = ctx.createLinearGradient(x - 8, y - 8, x + 8, y + 8);
+                pointGradient.addColorStop(0, '#3498db');
+                pointGradient.addColorStop(1, '#2c3e50');
+                ctx.fillStyle = pointGradient;
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            });
+        }
+
+        // Initialize on load
+        init();
+    </script>
+    <script>
+       // Unregister any old service workers first, then register the new one
+if ('serviceWorker' in navigator) {
+    // Clean up old registrations
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+            registration.unregister();
+            console.log('Unregistered old Service Worker');
+        }
+    });
+
+    // Register new service worker after page loads
+    window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./sw.js')
+            .then(function(registration) {
+                console.log('Service Worker registered successfully:', registration);
+            })
+            .catch(function(error) {
+                console.log('Service Worker registration failed:', error);
+            });
+    });
+}
+    </script>
+</body>
+</html>
